@@ -1,4 +1,6 @@
 from itertools import product
+import tkinter as tk
+from tkinter import messagebox
 
 estructura_geografica = {
     "caba": [
@@ -43,7 +45,16 @@ estructura_geografica = {
     "santiago del estero": ["santiago del estero"]
 }
 
-def generar_queries():
+# Opciones para la interfaz gráfica
+TIPOS_NEGOCIO_OPCIONES = [
+    "Fábrica", "Proveedor", "Distribuidor", "Mayorista", "Minorista"
+]
+LOCALIDADES_OPCIONES = sorted({loc for locs in estructura_geografica.values() for loc in locs})
+CIUDADES_OPCIONES = sorted(estructura_geografica.keys())
+PROVINCIAS_OPCIONES = sorted(estructura_geografica.keys())
+PAISES_OPCIONES = ["Argentina", "Uruguay", "Chile", "Brasil", "Paraguay"]
+
+def generar_queries_cli():
     print("🧠 Generador avanzado de Example Queries para scraping")
 
     tipos_negocio = input("👉 Tipos de negocio (ej: Fábrica, Proveedor). Separá por coma: ").strip().lower().split(",")
@@ -93,5 +104,113 @@ def generar_queries():
 
     print(f"\n✅ Se generaron {len(queries)} queries en 'example-queries.txt'")
 
+
+class QueryGeneratorApp:
+    def __init__(self, root):
+        self.root = root
+        root.title("Generador de Example Queries")
+        root.geometry("500x600")
+
+        tk.Label(root, text="Rubros o productos (separados por coma)").pack(pady=5)
+        self.entry_rubros = tk.Entry(root, width=50)
+        self.entry_rubros.pack(pady=5)
+
+        self.lb_tipos = self._create_listbox(
+            "Tipo de negocio", TIPOS_NEGOCIO_OPCIONES
+        )
+        self.lb_localidades = self._create_listbox(
+            "Localidades o barrios", LOCALIDADES_OPCIONES, height=8
+        )
+        self.lb_ciudades = self._create_listbox(
+            "Ciudad o departamento", CIUDADES_OPCIONES, height=5
+        )
+        self.lb_provincias = self._create_listbox(
+            "Provincia", PROVINCIAS_OPCIONES, height=5
+        )
+        self.lb_paises = self._create_listbox(
+            "País", PAISES_OPCIONES, height=5
+        )
+
+        tk.Button(
+            root,
+            text="Generar queries",
+            command=self.on_generate,
+            bg="#2D2A32",
+            fg="white"
+        ).pack(pady=10)
+
+    def _create_listbox(self, label, options, height=6):
+        frame = tk.Frame(self.root)
+        frame.pack(pady=5)
+        tk.Label(frame, text=label).pack()
+        lb = tk.Listbox(
+            frame,
+            listvariable=tk.StringVar(value=options),
+            selectmode=tk.MULTIPLE,
+            height=height,
+            exportselection=False,
+            width=45
+        )
+        lb.pack()
+        return lb
+
+    def on_generate(self):
+        tipos = [self.lb_tipos.get(i).lower() for i in self.lb_tipos.curselection()]
+        rubros = [r.strip().lower() for r in self.entry_rubros.get().split(',') if r.strip()]
+        locs = [self.lb_localidades.get(i).lower() for i in self.lb_localidades.curselection()]
+        ciudades = [self.lb_ciudades.get(i).lower() for i in self.lb_ciudades.curselection()]
+        provincias = [self.lb_provincias.get(i).lower() for i in self.lb_provincias.curselection()]
+        paises = [self.lb_paises.get(i) for i in self.lb_paises.curselection()]
+
+        generar_queries(tipos, rubros, locs, ciudades, provincias, paises)
+
+def generar_queries(tipos_negocio, rubros, localidades, ciudades, provincias, paises):
+    """Genera las queries combinando las selecciones de la UI."""
+
+    if not tipos_negocio or not rubros or not provincias or not paises:
+        messagebox.showerror(
+            "Datos faltantes",
+            "Debes seleccionar al menos un tipo de negocio, rubro, provincia y país."
+        )
+        return
+
+    if not localidades:
+        localidades = []
+        for c in ciudades:
+            localidades.extend(estructura_geografica.get(c, []))
+        for p in provincias:
+            localidades.extend(estructura_geografica.get(p, []))
+        localidades = sorted(set(localidades))
+
+    if not localidades:
+        messagebox.showwarning(
+            "Sin localidades",
+            "No se encontraron localidades para combinar."
+        )
+        return
+
+    combinaciones = product(
+        tipos_negocio, rubros, localidades,
+        ciudades or [""], provincias, paises
+    )
+
+    queries = []
+    for tipo, rubro, loc, ciudad, prov, pais in combinaciones:
+        ciudad_final = ciudad if ciudad else prov
+        queries.append(
+            f"{tipo} de {rubro} en {loc}, {ciudad_final}, {prov}, {pais}"
+        )
+
+    with open("example-queries.txt", "w", encoding="utf-8") as f:
+        for q in queries:
+            f.write(q + "\n")
+
+    messagebox.showinfo(
+        "Éxito",
+        f"Se generaron {len(queries)} queries en 'example-queries.txt'"
+    )
+
 if __name__ == "__main__":
-    generar_queries()
+    root = tk.Tk()
+    app = QueryGeneratorApp(root)
+    root.mainloop()
