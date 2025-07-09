@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 estructura_geografica = {
-    "ciudad autónoma de buenos aires": [
+    "caba": [
         "retiro",
         "san nicolas",
         "monserrat",
@@ -305,14 +305,16 @@ def generar_queries(tipos_negocio, rubros, localidades, ciudades, provincias, pa
 
     if not localidades:
         localidades = []
-        for c in ciudades:
-            locs = estructura_geografica.get(c, [])
-            if locs:
-                localidades.extend(locs)        
-        for p in provincias:
-            locs = estructura_geografica.get(p, [])
-            if locs:
-                localidades.extend(locs)
+        if ciudades:
+            for c in ciudades:
+                locs = estructura_geografica.get(c, [])
+                if locs:
+                    localidades.extend(locs)
+        if not localidades:
+            for p in provincias:
+                locs = estructura_geografica.get(p, [])
+                if locs:
+                    localidades.extend(locs)
         localidades = sorted(set(localidades))
 
         if not localidades:
