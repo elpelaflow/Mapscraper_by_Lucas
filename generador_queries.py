@@ -94,7 +94,7 @@ estructura_geografica = {
         "bahia blanca",
         "mar del plata",
         "tandil",
-        "san nicolas",    
+        "san nicolas",
     ],
     "tucuman": [
         "san miguel de tucuman",
@@ -102,7 +102,7 @@ estructura_geografica = {
         "tafi viejo",
         "cruz alta",
         "chicligasta",
-    ],    
+    ],
     "cordoba": ["cordoba", "rio cuarto", "colon", "punilla", "san justo"],
     "santa fe": ["rosario", "santa fe", "san lorenzo", "general lopez", "castellanos"],
     "mendoza": ["mendoza", "godoy cruz", "guaymallen", "maipu", "san rafael"],
@@ -147,6 +147,13 @@ PROVINCIAS_POR_PAIS = {
 CIUDADES_POR_PROVINCIA = {prov: [prov] for prov in PROVINCIAS_OPCIONES}
 CIUDADES_POR_PROVINCIA["buenos aires"] = ["caba"] + estructura_geografica["buenos aires"]
 LOCALIDADES_POR_CIUDAD = estructura_geografica
+
+# Algunas ciudades se muestran con un nombre distinto al utilizarse en las
+# consultas. Por ejemplo, "caba" se debe mostrar como "ciudad autónoma de
+# buenos aires".
+CIUDAD_DISPLAY = {
+    "caba": "ciudad autónoma de buenos aires",
+}
 
 
 class MultiSelectDropdown:
@@ -230,7 +237,7 @@ def generar_queries_cli():
         print(
             "❌ Faltan datos obligatorios. Debes ingresar país y provincia. "
             "Los campos 'Ciudad o departamento' y 'Localidades o barrios' son opcionales."
-        )        
+        )
         return
 
     generar_queries(
@@ -295,7 +302,7 @@ class QueryGeneratorApp:
         self._update_dropdown(self.dd_localidades, [])
 
     def on_provincia_select(self, _event=None):
-        provs = [p.lower() for p in self.dd_provincias.get_selected()]        
+        provs = [p.lower() for p in self.dd_provincias.get_selected()]
         ciudades = []
         for p in provs:
             ciudades.extend(CIUDADES_POR_PROVINCIA.get(p, []))
@@ -334,7 +341,7 @@ def generar_queries(tipos_negocio, rubros, localidades, ciudades, provincias, pa
         return
 
     user_selected_ciudades = bool(ciudades)
-    if not ciudades:        
+    if not ciudades:
         for p in provincias:
             ciudades.extend(CIUDADES_POR_PROVINCIA.get(p, []))
         ciudades = sorted(set(ciudades))
@@ -357,13 +364,14 @@ def generar_queries(tipos_negocio, rubros, localidades, ciudades, provincias, pa
                 for loc in locs:
                     for tipo in tipos_negocio:
                         for rubro in rubros:
+                            ciudad_mostrar = CIUDAD_DISPLAY.get(ciudad, ciudad)
                             if loc:
                                 queries.append(
-                                    f"{tipo} de {rubro} en {loc}, {ciudad}, {prov}, {pais}"
+                                    f"{tipo} de {rubro} en {loc}, {ciudad_mostrar}, {prov}, {pais}"
                                 )
                             else:
                                 queries.append(
-                                    f"{tipo} de {rubro} en {ciudad}, {prov}, {pais}"
+                                    f"{tipo} de {rubro} en {ciudad_mostrar}, {prov}, {pais}"
                                 )
 
     with open("example-queries.txt", "w", encoding="utf-8") as f:
@@ -371,7 +379,7 @@ def generar_queries(tipos_negocio, rubros, localidades, ciudades, provincias, pa
             f.write(q + "\n")
 
     messagebox.showinfo(
-        "Éxito", f"Se generaron {len(queries)} queries en 'example-queries.txt'"    
+        "Éxito", f"Se generaron {len(queries)} queries en 'example-queries.txt'"
     )
 
 
