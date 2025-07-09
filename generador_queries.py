@@ -209,9 +209,9 @@ def generar_queries_cli():
         .lower()
         .split(",")
     )
-    pais = input("👉 País: ").strip()
+    pais = input("👉 País (obligatorio): ").strip()
     provincia_input = (
-        input("👉 Provincia (ej: buenos aires, tucuman): ").strip().lower()
+        input("👉 Provincia (obligatoria, ej: buenos aires, tucuman): ").strip().lower()
     )
     ciudad_input = (
         input("👉 Ciudad o departamento (ej: caba, rosario, etc.): ").strip().lower()
@@ -227,7 +227,10 @@ def generar_queries_cli():
     localidades = [l.strip() for l in localidades_input.split(",") if l.strip()]
 
     if not tipos_negocio or not rubros or not provincia_input or not pais:
-        print("❌ Faltan datos obligatorios. Abortando.")
+        print(
+            "❌ Faltan datos obligatorios. Debes ingresar país y provincia. "
+            "Los campos 'Ciudad o departamento' y 'Localidades o barrios' son opcionales."
+        )        
         return
 
     generar_queries(
@@ -261,9 +264,15 @@ class QueryGeneratorApp:
 
         # Menús desplegables multiselección
         self.dd_localidades = MultiSelectDropdown(root, "Localidades o barrios", [])
-        self.dd_ciudades = MultiSelectDropdown(root, "Ciudad o departamento", [], command=self.on_ciudad_select)
-        self.dd_provincias = MultiSelectDropdown(root, "Provincia", [], command=self.on_provincia_select)
-        self.dd_paises = MultiSelectDropdown(root, "País", PAISES_OPCIONES, command=self.on_pais_select)
+        self.dd_ciudades = MultiSelectDropdown(
+            root, "Ciudad o departamento", [], command=self.on_ciudad_select
+        )
+        self.dd_provincias = MultiSelectDropdown(
+            root, "Provincia (obligatoria)", [], command=self.on_provincia_select
+        )
+        self.dd_paises = MultiSelectDropdown(
+            root, "País (obligatorio)", PAISES_OPCIONES, command=self.on_pais_select
+        )
 
         tk.Button(
             root,
@@ -319,36 +328,43 @@ def generar_queries(tipos_negocio, rubros, localidades, ciudades, provincias, pa
     if not tipos_negocio or not rubros or not provincias or not paises:
         messagebox.showerror(
             "Datos faltantes",
-            "Debes seleccionar al menos un tipo de negocio, rubro, provincia y país.",
+            "Debes seleccionar al menos un tipo de negocio, rubro, provincia y país. "
+            "Los campos 'Ciudad o departamento' y 'Localidades o barrios' son opcionales.",
         )
         return
 
-    if not localidades:
-        localidades = []
-        for c in ciudades:
-            locs = estructura_geografica.get(c, [])
-            if locs:
-                localidades.extend(locs)        
+    user_selected_ciudades = bool(ciudades)
+    if not ciudades:        
         for p in provincias:
-            locs = estructura_geografica.get(p, [])
-            if locs:
-                localidades.extend(locs)
-        localidades = sorted(set(localidades))
-
-        if not localidades:
-            localidades = [""]
-
-    combinaciones = product(
-        tipos_negocio, rubros, localidades, ciudades or [""], provincias, paises    
-    )
+            ciudades.extend(CIUDADES_POR_PROVINCIA.get(p, []))
+        ciudades = sorted(set(ciudades))
 
     queries = []
-    for tipo, rubro, loc, ciudad, prov, pais in combinaciones:
-        ciudad_final = ciudad if ciudad else prov
-        if loc:
-            queries.append(f"{tipo} de {rubro} en {loc}, {ciudad_final}, {prov}, {pais}")
-        else:
-            queries.append(f"{tipo} de {rubro} en {ciudad_final}, {prov}, {pais}")
+    for pais in paises:
+        for prov in provincias:
+            ciudades_actuales = (
+                [c for c in ciudades if c in CIUDADES_POR_PROVINCIA.get(prov, [])]
+                if ciudades
+                else CIUDADES_POR_PROVINCIA.get(prov, [])
+            )
+            for ciudad in ciudades_actuales:
+                if localidades:
+                    locs = localidades
+                elif user_selected_ciudades:
+                    locs = estructura_geografica.get(ciudad, []) or [""]
+                else:
+                    locs = [""]
+                for loc in locs:
+                    for tipo in tipos_negocio:
+                        for rubro in rubros:
+                            if loc:
+                                queries.append(
+                                    f"{tipo} de {rubro} en {loc}, {ciudad}, {prov}, {pais}"
+                                )
+                            else:
+                                queries.append(
+                                    f"{tipo} de {rubro} en {ciudad}, {prov}, {pais}"
+                                )
 
     with open("example-queries.txt", "w", encoding="utf-8") as f:
         for q in queries:
