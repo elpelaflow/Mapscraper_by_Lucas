@@ -1,4 +1,6 @@
 from itertools import product
+import os
+import re
 import tkinter as tk
 from tkinter import messagebox
 
@@ -375,12 +377,26 @@ def generar_queries(tipos_negocio, rubros, localidades, ciudades, provincias, pa
                                     f"{tipo} de {rubro} en {ciudad_mostrar}, {prov}, {pais}"
                                 )
 
-    with open("example-queries.txt", "w", encoding="utf-8") as f:
+    # Generar nombre de archivo correlativo para las queries
+    existing_files = [
+        f
+        for f in os.listdir()
+        if re.match(r"example-queries-(\d+)\.txt$", f)
+    ]
+    if existing_files:
+        numbers = [int(re.search(r"(\d+)", f).group(1)) for f in existing_files]
+        next_number = max(numbers) + 1
+    else:
+        next_number = 1
+
+    filename = f"example-queries-{next_number}.txt"
+
+    with open(filename, "w", encoding="utf-8") as f:
         for q in queries:
             f.write(q + "\n")
 
     messagebox.showinfo(
-        "Éxito", f"Se generaron {len(queries)} queries en 'example-queries.txt'"
+        "Éxito", f"Se generaron {len(queries)} queries en '{filename}'"    
     )
 
 
