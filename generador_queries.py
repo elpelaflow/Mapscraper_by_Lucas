@@ -137,14 +137,15 @@ LOCALIDADES_OPCIONES = sorted(
     {loc for locs in estructura_geografica.values() for loc in locs}
 )
 CIUDADES_OPCIONES = sorted(estructura_geografica.keys())
-PROVINCIAS_OPCIONES = sorted(estructura_geografica.keys())
+PROVINCIAS_OPCIONES = sorted([p for p in estructura_geografica.keys() if p != "caba"])
 PAISES_OPCIONES = ["Argentina", "Uruguay", "Chile", "Brasil", "Paraguay"]
 
 # Relaciones jerárquicas para las selecciones
 PROVINCIAS_POR_PAIS = {
-    "argentina": list(estructura_geografica.keys()),
+    "argentina": PROVINCIAS_OPCIONES,
 }
-CIUDADES_POR_PROVINCIA = {prov: [prov] for prov in estructura_geografica.keys()}
+CIUDADES_POR_PROVINCIA = {prov: [prov] for prov in PROVINCIAS_OPCIONES}
+CIUDADES_POR_PROVINCIA["buenos aires"] = ["caba"] + estructura_geografica["buenos aires"]
 LOCALIDADES_POR_CIUDAD = estructura_geografica
 
 
@@ -178,46 +179,20 @@ def generar_queries_cli():
 
     tipos_negocio = [t.strip() for t in tipos_negocio if t.strip()]
     rubros = [r.strip() for r in rubros if r.strip()]
-    localidades = []
+    localidades = [l.strip() for l in localidades_input.split(",") if l.strip()]
 
     if not tipos_negocio or not rubros or not provincia_input or not pais:
         print("❌ Faltan datos obligatorios. Abortando.")
         return
 
-    # CASO ESPECIAL CABA
-    if ciudad_input == "caba":
-        ciudad = "ciudad autonoma de buenos aires"
-        provincia = "buenos aires"
-        if not localidades_input:
-            localidades = estructura_geografica.get("caba", [])
-        else:
-            localidades = [l.strip() for l in localidades_input.split(",") if l.strip()]
-    else:
-        ciudad = ciudad_input if ciudad_input else provincia_input
-        provincia = provincia_input
-
-        if localidades_input:
-            localidades = [l.strip() for l in localidades_input.split(",") if l.strip()]
-        elif ciudad_input in estructura_geografica:
-            localidades = estructura_geografica[ciudad_input]
-        else:
-            localidades = estructura_geografica.get(provincia_input, [])
-
-    if not localidades:
-        print("⚠️ No se encontraron localidades para combinar. Abortando.")
-        return
-
-    combinaciones = product(tipos_negocio, rubros, localidades)
-    queries = [
-        f"{tipo} de {rubro} en {localidad}, {ciudad}, {provincia}, {pais}"
-        for tipo, rubro, localidad in combinaciones
-    ]
-
-    with open("example-queries.txt", "w", encoding="utf-8") as f:
-        for query in queries:
-            f.write(query + "\n")
-
-    print(f"\n✅ Se generaron {len(queries)} queries en 'example-queries.txt'")
+    generar_queries(
+        tipos_negocio,
+        rubros,
+        localidades,
+        [ciudad_input] if ciudad_input else [],
+        [provincia_input],
+        [pais],
+    )
 
 
 class QueryGeneratorApp:
@@ -331,16 +306,17 @@ def generar_queries(tipos_negocio, rubros, localidades, ciudades, provincias, pa
     if not localidades:
         localidades = []
         for c in ciudades:
-            localidades.extend(estructura_geografica.get(c, []))
+            locs = estructura_geografica.get(c, [])
+            if locs:
+                localidades.extend(locs)        
         for p in provincias:
-            localidades.extend(estructura_geografica.get(p, []))
+            locs = estructura_geografica.get(p, [])
+            if locs:
+                localidades.extend(locs)
         localidades = sorted(set(localidades))
 
-    if not localidades:
-        messagebox.showwarning(
-            "Sin localidades", "No se encontraron localidades para combinar."        
-        )
-        return
+        if not localidades:
+            localidades = [""]
 
     combinaciones = product(
         tipos_negocio, rubros, localidades, ciudades or [""], provincias, paises    
@@ -349,7 +325,10 @@ def generar_queries(tipos_negocio, rubros, localidades, ciudades, provincias, pa
     queries = []
     for tipo, rubro, loc, ciudad, prov, pais in combinaciones:
         ciudad_final = ciudad if ciudad else prov
-        queries.append(f"{tipo} de {rubro} en {loc}, {ciudad_final}, {prov}, {pais}")
+        if loc:
+            queries.append(f"{tipo} de {rubro} en {loc}, {ciudad_final}, {prov}, {pais}")
+        else:
+            queries.append(f"{tipo} de {rubro} en {ciudad_final}, {prov}, {pais}")
 
     with open("example-queries.txt", "w", encoding="utf-8") as f:
         for q in queries:
