@@ -149,6 +149,51 @@ CIUDADES_POR_PROVINCIA["buenos aires"] = ["caba"] + estructura_geografica["bueno
 LOCALIDADES_POR_CIUDAD = estructura_geografica
 
 
+class MultiSelectDropdown:
+    """Widget simple para seleccionar múltiples opciones en un menú desplegable."""
+
+    def __init__(self, master, label, options, command=None):
+        self.frame = tk.Frame(master)
+        self.frame.pack(pady=5)
+        tk.Label(self.frame, text=label).pack()
+
+        self.button = tk.Menubutton(self.frame, text="Seleccione...", relief=tk.RAISED)
+        self.button.pack()
+        self.menu = tk.Menu(self.button, tearoff=False)
+        self.button.config(menu=self.menu)
+
+        self._label = label
+        self.command = command
+        self.vars = {}
+        self.update_options(options)
+
+    def update_options(self, options):
+        self.menu.delete(0, tk.END)
+        self.vars = {}
+        for opt in options:
+            var = tk.BooleanVar()
+            self.menu.add_checkbutton(
+                label=opt,
+                variable=var,
+                command=self._on_select,
+            )
+            self.vars[opt] = var
+        self._update_label()
+
+    def _on_select(self):
+        self._update_label()
+        if self.command:
+            self.command()
+
+    def _update_label(self):
+        selected = [opt for opt, var in self.vars.items() if var.get()]
+        text = ", ".join(selected) if selected else "Seleccione..."
+        self.button.config(text=text)
+
+    def get_selected(self):
+        return [opt for opt, var in self.vars.items() if var.get()]
+
+
 def generar_queries_cli():
     print("🧠 Generador avanzado de Example Queries para scraping")
 
@@ -205,17 +250,20 @@ class QueryGeneratorApp:
         self.entry_rubros = tk.Entry(root, width=50)
         self.entry_rubros.pack(pady=5)
 
-        self.lb_tipos = self._create_listbox("Tipo de negocio", TIPOS_NEGOCIO_OPCIONES)        
-        self.lb_localidades = self._create_listbox(
-            "Localidades o barrios", [], height=8
-        )
-        self.lb_ciudades = self._create_listbox("Ciudad o departamento", [], height=5)
-        self.lb_provincias = self._create_listbox("Provincia", [], height=5)
-        self.lb_paises = self._create_listbox("País", PAISES_OPCIONES, height=5)
+        # Tipo de negocio como checkboxes
+        self.tipo_vars = {}
+        frame_tipos = tk.LabelFrame(root, text="Tipo de negocio")
+        frame_tipos.pack(pady=5)
+        for opt in TIPOS_NEGOCIO_OPCIONES:
+            var = tk.BooleanVar()
+            tk.Checkbutton(frame_tipos, text=opt, variable=var).pack(anchor="w")
+            self.tipo_vars[opt] = var
 
-        self.lb_paises.bind("<<ListboxSelect>>", self.on_pais_select)
-        self.lb_provincias.bind("<<ListboxSelect>>", self.on_provincia_select)
-        self.lb_ciudades.bind("<<ListboxSelect>>", self.on_ciudad_select)
+        # Menús desplegables multiselección
+        self.dd_localidades = MultiSelectDropdown(root, "Localidades o barrios", [])
+        self.dd_ciudades = MultiSelectDropdown(root, "Ciudad o departamento", [], command=self.on_ciudad_select)
+        self.dd_provincias = MultiSelectDropdown(root, "Provincia", [], command=self.on_provincia_select)
+        self.dd_paises = MultiSelectDropdown(root, "País", PAISES_OPCIONES, command=self.on_pais_select)
 
         tk.Button(
             root,
@@ -225,70 +273,42 @@ class QueryGeneratorApp:
             fg="white",
         ).pack(pady=10)
 
-    def _create_listbox(self, label, options, height=6):
-        frame = tk.Frame(self.root)
-        frame.pack(pady=5)
-        tk.Label(frame, text=label).pack()
-        lb = tk.Listbox(
-            frame,
-            listvariable=tk.StringVar(value=options),
-            selectmode=tk.MULTIPLE,
-            height=height,
-            exportselection=False,
-            width=45,
-        )
-        lb.pack()
-        return lb
-
-    def _update_listbox(self, lb, options):
-        lb.delete(0, tk.END)
-        for opt in options:
-            lb.insert(tk.END, opt)
+    def _update_dropdown(self, dd, options):
+        dd.update_options(options)
 
     def on_pais_select(self, _event=None):
-        paises = [self.lb_paises.get(i).lower() for i in self.lb_paises.curselection()]
+        paises = [p.lower() for p in self.dd_paises.get_selected()]
         provincias = []
         for p in paises:
             provincias.extend(PROVINCIAS_POR_PAIS.get(p, []))
-        self._update_listbox(self.lb_provincias, sorted(set(provincias)))
-        self._update_listbox(self.lb_ciudades, [])
-        self._update_listbox(self.lb_localidades, [])
+        self._update_dropdown(self.dd_provincias, sorted(set(provincias)))
+        self._update_dropdown(self.dd_ciudades, [])
+        self._update_dropdown(self.dd_localidades, [])
 
     def on_provincia_select(self, _event=None):
-        provs = [
-            self.lb_provincias.get(i).lower() for i in self.lb_provincias.curselection()
-        ]
+        provs = [p.lower() for p in self.dd_provincias.get_selected()]        
         ciudades = []
         for p in provs:
             ciudades.extend(CIUDADES_POR_PROVINCIA.get(p, []))
-        self._update_listbox(self.lb_ciudades, sorted(set(ciudades)))
-        self._update_listbox(self.lb_localidades, [])
+        self._update_dropdown(self.dd_ciudades, sorted(set(ciudades)))
+        self._update_dropdown(self.dd_localidades, [])
 
     def on_ciudad_select(self, _event=None):
-        ciudades = [
-            self.lb_ciudades.get(i).lower() for i in self.lb_ciudades.curselection()
-        ]
+        ciudades = [c.lower() for c in self.dd_ciudades.get_selected()]
         locs = []
         for c in ciudades:
             locs.extend(LOCALIDADES_POR_CIUDAD.get(c, []))
-        self._update_listbox(self.lb_localidades, sorted(set(locs)))
-    
+        self._update_dropdown(self.dd_localidades, sorted(set(locs)))
+
     def on_generate(self):
-        tipos = [self.lb_tipos.get(i).lower() for i in self.lb_tipos.curselection()]
+        tipos = [opt.lower() for opt, var in self.tipo_vars.items() if var.get()]
         rubros = [
             r.strip().lower() for r in self.entry_rubros.get().split(",") if r.strip()
         ]
-        locs = [
-            self.lb_localidades.get(i).lower()
-            for i in self.lb_localidades.curselection()
-        ]
-        ciudades = [
-            self.lb_ciudades.get(i).lower() for i in self.lb_ciudades.curselection()
-        ]
-        provincias = [
-            self.lb_provincias.get(i).lower() for i in self.lb_provincias.curselection()
-        ]
-        paises = [self.lb_paises.get(i) for i in self.lb_paises.curselection()]
+        locs = [l.lower() for l in self.dd_localidades.get_selected()]
+        ciudades = [c.lower() for c in self.dd_ciudades.get_selected()]
+        provincias = [p.lower() for p in self.dd_provincias.get_selected()]
+        paises = [p for p in self.dd_paises.get_selected()]
 
         generar_queries(tipos, rubros, locs, ciudades, provincias, paises)
 
@@ -305,16 +325,14 @@ def generar_queries(tipos_negocio, rubros, localidades, ciudades, provincias, pa
 
     if not localidades:
         localidades = []
-        if ciudades:
-            for c in ciudades:
-                locs = estructura_geografica.get(c, [])
-                if locs:
-                    localidades.extend(locs)
-        if not localidades:
-            for p in provincias:
-                locs = estructura_geografica.get(p, [])
-                if locs:
-                    localidades.extend(locs)
+        for c in ciudades:
+            locs = estructura_geografica.get(c, [])
+            if locs:
+                localidades.extend(locs)        
+        for p in provincias:
+            locs = estructura_geografica.get(p, [])
+            if locs:
+                localidades.extend(locs)
         localidades = sorted(set(localidades))
 
         if not localidades:
