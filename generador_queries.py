@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 estructura_geografica = {
-    "caba": [
+    "ciudad autónoma de buenos aires": [
         "retiro",
         "san nicolas",
         "monserrat",
