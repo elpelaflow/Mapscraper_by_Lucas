@@ -147,7 +147,9 @@ PAISES_OPCIONES = ["Argentina", "Uruguay", "Chile", "Brasil", "Paraguay"]
 PROVINCIAS_POR_PAIS = {
     "argentina": PROVINCIAS_OPCIONES,
 }
-CIUDADES_POR_PROVINCIA = {prov: [prov] for prov in PROVINCIAS_OPCIONES}
+CIUDADES_POR_PROVINCIA = {
+    prov: estructura_geografica.get(prov, [prov]) for prov in PROVINCIAS_OPCIONES
+}
 CIUDADES_POR_PROVINCIA["buenos aires"] = ["caba"] + estructura_geografica["buenos aires"]
 LOCALIDADES_POR_CIUDAD = estructura_geografica
 
