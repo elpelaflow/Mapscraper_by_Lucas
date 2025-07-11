@@ -135,6 +135,7 @@ TIPOS_NEGOCIO_OPCIONES = [
     "Importador",
     "Mayorista",
     "Outlet",
+    "Productor",
 ]
 LOCALIDADES_OPCIONES = sorted(
     {loc for locs in estructura_geografica.values() for loc in locs}
