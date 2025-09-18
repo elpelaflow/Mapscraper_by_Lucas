@@ -2,6 +2,7 @@ package gmaps
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -186,9 +187,9 @@ func (j *PlaceJob) extractJSON(page playwright.Page) ([]byte, error) {
 		return nil, err
 	}
 
-	raw, ok := rawI.(string)
-	if !ok {
-		return nil, fmt.Errorf("could not convert to string")
+	raw, err := marshalExtractedJSON(rawI)
+	if err != nil {
+		return nil, err
 	}
 
 	const prefix = `)]}'`
@@ -196,6 +197,33 @@ func (j *PlaceJob) extractJSON(page playwright.Page) ([]byte, error) {
 	raw = strings.TrimSpace(strings.TrimPrefix(raw, prefix))
 
 	return []byte(raw), nil
+}
+
+func marshalExtractedJSON(raw any) (string, error) {
+	switch v := raw.(type) {
+	case string:
+		return v, nil
+	case []byte:
+		return string(v), nil
+	case []any:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return "", err
+		}
+
+		return string(data), nil
+	case map[string]any:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return "", err
+		}
+
+		return string(data), nil
+	case nil:
+		return "", fmt.Errorf("received nil data")
+	default:
+		return "", fmt.Errorf("unexpected data type %T", raw)
+	}
 }
 
 func (j *PlaceJob) getReviewCount(data []byte) int {
