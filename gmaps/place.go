@@ -247,16 +247,17 @@ func ctxWait(ctx context.Context, dur time.Duration) {
 }
 
 const js = `
-function parse() {
-	const appState = window.APP_INITIALIZATION_STATE[3];
-	if (!appState) {
+	function parse() {
+		const appState = window.APP_INITIALIZATION_STATE[3];
+		if (!appState) {
+			return null;
+		}
+		const keys = Object.keys(appState);
+		const key = keys[0];
+		if (appState[key] && appState[key][6]) {
+			return appState[key][6];
+		}
 		return null;
-	}
-	const keys = Object.keys(appState);
-	const key = keys[0];
-	if (appState[key] && appState[key][6]) {
-		return appState[key][6];
-	}
-	return null;
 }
+return parse();
 `
