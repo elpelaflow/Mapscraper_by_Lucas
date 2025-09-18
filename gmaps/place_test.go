@@ -1,6 +1,7 @@
 package gmaps
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -71,5 +72,64 @@ func TestPlaceJobExtractJSON(t *testing.T) {
 
 		require.Error(t, err)
 		require.Nil(t, raw)
+	})
+}
+
+func TestNormalizeJSONMeta(t *testing.T) {
+	t.Parallel()
+
+	t.Run("handles multiple meta formats", func(t *testing.T) {
+		t.Parallel()
+
+		cases := []struct {
+			name    string
+			input   any
+			want    []byte
+			wantErr string
+		}{
+			{
+				name:  "bytes",
+				input: []byte(`{"foo":"bar"}`),
+				want:  []byte(`{"foo":"bar"}`),
+			},
+			{
+				name:  "string",
+				input: ")]}'\n{\"foo\":\"bar\"}",
+				want:  []byte(`{"foo":"bar"}`),
+			},
+			{
+				name:  "raw message",
+				input: json.RawMessage(`{"foo":"bar"}`),
+				want:  []byte(`{"foo":"bar"}`),
+			},
+			{
+				name:  "map",
+				input: map[string]any{"foo": "bar"},
+				want:  []byte(`{"foo":"bar"}`),
+			},
+			{
+				name:    "nil",
+				input:   nil,
+				wantErr: "missing",
+			},
+		}
+
+		for _, tc := range cases {
+			tc := tc
+
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+
+				got, err := normalizeJSONMeta(tc.input)
+				if tc.wantErr != "" {
+					require.ErrorContains(t, err, tc.wantErr)
+
+					return
+				}
+
+				require.NoError(t, err)
+				require.Equal(t, tc.want, got)
+			})
+		}
 	})
 }

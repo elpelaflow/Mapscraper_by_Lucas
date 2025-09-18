@@ -26,6 +26,8 @@ type PlaceJob struct {
 	ExtractExtraReviews bool
 }
 
+const xssiPrefix = `)]}'`
+
 func NewPlaceJob(parentID, langCode, u string, extractEmail, extraExtraReviews bool, opts ...PlaceJobOptions) *PlaceJob {
 	const (
 		defaultPrio       = scrapemate.PriorityMedium
@@ -68,9 +70,9 @@ func (j *PlaceJob) Process(_ context.Context, resp *scrapemate.Response) (any, [
 		resp.Meta = nil
 	}()
 
-	raw, ok := resp.Meta["json"].([]byte)
-	if !ok {
-		return nil, nil, fmt.Errorf("could not convert to []byte")
+	raw, err := normalizeJSONMeta(resp.Meta["json"])
+	if err != nil {
+		return nil, nil, err
 	}
 
 	entry, err := EntryFromJSON(raw)
@@ -194,9 +196,33 @@ func (j *PlaceJob) extractJSON(page playwright.Page) ([]byte, error) {
 
 	const prefix = `)]}'`
 
-	raw = strings.TrimSpace(strings.TrimPrefix(raw, prefix))
+	raw = strings.TrimSpace(strings.TrimPrefix(raw, xssiPrefix))
 
 	return []byte(raw), nil
+}
+
+func normalizeJSONMeta(meta any) ([]byte, error) {
+	switch v := meta.(type) {
+	case nil:
+		return nil, fmt.Errorf("json metadata is missing")
+	case []byte:
+		return v, nil
+	case string:
+		trimmed := strings.TrimSpace(strings.TrimPrefix(v, xssiPrefix))
+
+		return []byte(trimmed), nil
+	case json.RawMessage:
+		return []byte(v), nil
+	default:
+		normalized, err := marshalExtractedJSON(v)
+		if err != nil {
+			return nil, fmt.Errorf("could not convert json metadata to bytes: %w", err)
+		}
+
+		trimmed := strings.TrimSpace(strings.TrimPrefix(normalized, xssiPrefix))
+
+		return []byte(trimmed), nil
+	}
 }
 
 func marshalExtractedJSON(raw any) (string, error) {
